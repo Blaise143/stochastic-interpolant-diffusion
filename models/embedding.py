@@ -4,35 +4,82 @@ from typing import Union
 import math
 
 
+class FourrierFeatureEmbedding(nn.Module):
+    """
+    Based on the encodings from this paper : https://bmild.github.io/fourfeat/
+    might ideally work better than sinusoidal embeddings for stochastic interpolants
+    """
+
+    def __init__(self, embed_dim: int, scale: float = 30.):
+        super().__init__()
+
+        assert embed_dim % 2 == 0
+
+        self.embed_dim = embed_dim
+        self.scale = scale
+        self.register_buffer('W', torch.randn(embed_dim//2)*scale)
+
+    def forward(self, t: torch.Tensor):
+        if t.ndim == 1:
+            t = t[:, None]
+        proj = 2*math.pi * t*self.W[None, :]
+        return torch.cat([torch.sin(proj), torch.cos(proj)], dim=-1)
+
+
+class Sinusoidal_Embedding(nn.Module):
+    def __init__(self, embed_dim: int):
+        super().__init__()
+        self.embed_dim = embed_dim
+
+    def forward(self, t: Union[torch.Tensor, float]):
+        dim = self.embed_dim
+        if not isinstance(t, torch.Tensor):
+            t = torch.tensor([[t]])
+        if len(t.shape) == 1:
+            t = t[:, None]
+            # t = t.unsqueeze(-1)
+
+        half_dim = dim // 2
+        emb = math.log(10000) / (half_dim - 1)
+        emb = torch.exp(torch.arange(half_dim, device=t.device) * -emb)
+        emb = t * emb
+        emb = torch.cat((emb.sin(), emb.cos()), dim=-1).view(1, -1)
+        return emb
+
+
 class TimeEmbedding(nn.Module):
-    def __init__(self, embed_dim: int, projection_featues: int):
+    def __init__(self, embed_dim: int, projection_featues: int, use_sinusoidal: bool = False):
         super().__init__()
         self.embed_dim = embed_dim
         self.linears = nn.Sequential(
             nn.Linear(in_features=embed_dim, out_features=projection_featues),
             nn.ReLU()
         )
+        if use_sinusoidal:
+            self.embedding = Sinusoidal_Embedding(embed_dim=embed_dim)
+        else:
+            self.embedding = FourrierFeatureEmbedding(embed_dim=embed_dim)
 
     def forward(self, t):
-        t = self.sinusoidal_embedding(t)
+        t = self.embedding(t)
         return self.linears(t)
-
-    def sinusoidal_embedding(self, t: Union[float, torch.Tensor]):
-        dim = self.embed_dim
-        if not isinstance(t, torch.Tensor):
-            t = torch.tensor([[t]])
-        if len(t.shape) == 1:
-            t = t.unsqueeze(-1)
-
-        half_dim = dim // 2
-        emb = math.log(10000) / (half_dim - 1)
-        emb = torch.exp(torch.arange(half_dim, device=t.device) * -emb)
-        emb = t * emb
-        emb = torch.cat((emb.sin(), emb.cos()), dim=-1)
-        return emb
 
 
 if __name__ == "__main__":
-    embedding = TimeEmbedding(30, 100)
-    out = embedding(0)
-    print(out.shape)
+    import matplotlib.pyplot as plt
+    gaussian_fourier_embedding = FourrierFeatureEmbedding(64, 10)
+    sinusoidal_embedding = Sinusoidal_Embedding(64)
+    emb = gaussian_fourier_embedding(torch.tensor(4.))
+    emb2 = sinusoidal_embedding(torch.tensor(4.))
+    print(emb.shape, emb2.shape)
+    exit()
+    plt.figure(figsize=(10, 6))
+    for i in range(0, 64, 8):
+        plt.plot(t_vals.numpy(), embeddings[:, i].numpy(), label=f'dim {i}')
+    plt.xlabel("Time t ∈ [0, 1]")
+    plt.ylabel("Embedding value")
+    plt.title("Gaussian Fourier Feature Embeddings Over Time")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
