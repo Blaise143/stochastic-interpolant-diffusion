@@ -7,10 +7,10 @@ class StochasticInterpolant(nn.Module, ABC):
         super().__init__()
 
     @abstractmethod
-    def sample(self, t: torch.Tensor):
+    def sample(self, x: torch.Tensor):
         ...
 
     @abstractmethod
-    def compute_loss(self):
+    def compute_loss(self, x: torch.Tensor):
         ...
 

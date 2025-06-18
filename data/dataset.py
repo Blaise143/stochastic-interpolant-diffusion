@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from abc import ABC, abstractmethod
 from typing import Callable
-from base import BaseDataset, BaseDataLoader
+from data.base import BaseDataset, BaseDataLoader
 import torchvision
 from typing import Optional
 

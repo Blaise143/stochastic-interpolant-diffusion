@@ -43,7 +43,7 @@ class Sinusoidal_Embedding(nn.Module):
         emb = math.log(10000) / (half_dim - 1)
         emb = torch.exp(torch.arange(half_dim, device=t.device) * -emb)
         emb = t * emb
-        emb = torch.cat((emb.sin(), emb.cos()), dim=-1).view(1, -1)
+        emb = torch.cat((emb.sin(), emb.cos()), dim=-1)
         return emb
 
 
@@ -72,14 +72,3 @@ if __name__ == "__main__":
     emb = gaussian_fourier_embedding(torch.tensor(4.))
     emb2 = sinusoidal_embedding(torch.tensor(4.))
     print(emb.shape, emb2.shape)
-    exit()
-    plt.figure(figsize=(10, 6))
-    for i in range(0, 64, 8):
-        plt.plot(t_vals.numpy(), embeddings[:, i].numpy(), label=f'dim {i}')
-    plt.xlabel("Time t ∈ [0, 1]")
-    plt.ylabel("Embedding value")
-    plt.title("Gaussian Fourier Feature Embeddings Over Time")
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()

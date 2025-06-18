@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import List
-from embedding import TimeEmbedding
+from .embedding import TimeEmbedding
 
 
 class ConvBlock(nn.Module):
@@ -14,7 +14,8 @@ class ConvBlock(nn.Module):
                  normalization: nn.Module = nn.BatchNorm2d,
                  activation: nn.Module = nn.ReLU(),
                  embedding_dim: int = 100,
-                 up_sample=False):
+                 up_sample=False,
+                 use_sinusoidal: bool = False):
         super().__init__()
         self.up_sample = up_sample
         self.embedding_dim = embedding_dim
@@ -45,7 +46,7 @@ class ConvBlock(nn.Module):
 
         if embedding_dim is not None:
             self.time_embedding = TimeEmbedding(
-                embed_dim=embedding_dim, projection_featues=out_channels)
+                embed_dim=embedding_dim, projection_featues=out_channels, use_sinusoidal=use_sinusoidal)
         else:
             self.time_embedding = None
 
@@ -76,14 +77,16 @@ class Unet(nn.Module):
                 channels_list[0],
                 stride=1,
                 embedding_dim=embedding_dim,
-                up_sample=False
+                up_sample=False,
+                use_sinusoidal=use_sinusoidal
             ),
             ConvBlock(
                 channels_list[0],
                 channels_list[0],
                 stride=1,
                 embedding_dim=embedding_dim,
-                up_sample=False
+                up_sample=False,
+                use_sinusoidal=use_sinusoidal
             )
         ])
 

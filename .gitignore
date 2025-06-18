@@ -1,1 +1,6 @@
 /dataset
+/.xml
+.idea
+*.pyc
+*.log
+/wandb
