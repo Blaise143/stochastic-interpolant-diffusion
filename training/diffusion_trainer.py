@@ -17,7 +17,7 @@ def get_device():
 def train(
     data_dir="dataset",
     epochs=10,
-    batch_size=64,
+    batch_size=200,
     lr=1e-3,
     num_steps=500,
     device=get_device()#"cuda" if torch.cuda.is_available() else "cpu"
