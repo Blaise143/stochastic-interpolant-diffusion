@@ -19,7 +19,7 @@ class Diffusion(StochasticInterpolant):
 
     def sample(self, x: torch.Tensor):
         batch_size = x.shape[0]
-        device = x.device
+        device = x.device# next(self.model.parameters()).device#x.device
         t = torch.rand(batch_size, 1, device=device)
         eps = torch.randn_like(x)
 
