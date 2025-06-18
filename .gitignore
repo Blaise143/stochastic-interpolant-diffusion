@@ -4,3 +4,4 @@
 *.pyc
 *.log
 /wandb
+/data/__pycache__
