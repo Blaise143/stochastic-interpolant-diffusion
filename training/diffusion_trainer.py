@@ -6,6 +6,7 @@ from sampling.sde_solver import EulerMaruyamaSolver
 from data.dataset import EMNISTDataLoader
 import torchvision
 from torch.utils.data import TensorDataset, DataLoader  # for sanity check later
+from tqdm import tqdm
 
 
 def get_device():
@@ -39,7 +40,7 @@ def train(
     optimizer = Adam(model.parameters(), lr=lr)
     solver = EulerMaruyamaSolver(model, num_steps=num_steps)
 
-    for epoch in range(epochs):
+    for epoch in tqdm(range(epochs)):
         model.train()
         total_loss = 0
         for batch, _ in train_loader:
