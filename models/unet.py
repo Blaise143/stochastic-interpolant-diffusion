@@ -153,7 +153,9 @@ class Unet(nn.Module):
             ])
             self.ups.append(blocks)
 
-        self.final = nn.Conv2d(channels_list[0], out_channels, kernel_size=1)
+        self.final = nn.Sequential(
+            nn.Conv2d(channels_list[0], out_channels, kernel_size=1),
+            nn.Sigmoid())
 
     def forward(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         skips = []

@@ -16,10 +16,11 @@ class Diffusion(StochasticInterpolant):
 
         self.eps_predictor = model
         self.criterion = nn.MSELoss()
+        self.bce = nn.BCEWithLogitsLoss()
 
     def sample(self, x: torch.Tensor):
         batch_size = x.shape[0]
-        device = x.device# next(self.model.parameters()).device#x.device
+        device = x.device  # next(self.model.parameters()).device#x.device
         t = torch.rand(batch_size, 1, device=device)
         eps = torch.randn_like(x)
 
@@ -31,7 +32,8 @@ class Diffusion(StochasticInterpolant):
     def compute_loss(self, x: torch.Tensor):
         xt, t, eps = self.sample(x)
         eps_pred = self.eps_predictor(xt, t)
-        loss = self.criterion(eps, eps_pred)
+        # loss = self.criterion(eps, eps_pred)
+        loss = self.criterion(eps_pred, eps)
         return loss
 
     def forward(self, xt: torch.Tensor, t: torch.Tensor):
