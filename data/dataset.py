@@ -1,8 +1,11 @@
+from torch.utils.data import Dataset
 import torch
 from torch.utils.data import Dataset, DataLoader
 from abc import ABC, abstractmethod
 from typing import Callable
 from data.base import BaseDataset, BaseDataLoader
+from data.transforms import emnist_transform
+
 import torchvision
 from typing import Optional
 
@@ -13,16 +16,14 @@ class EMNIST(BaseDataset):
     def __init__(self, data_dir: str, transforms: Optional[TransformType] = None, train: bool = True, download: bool = True):
         super().__init__()
 
-        if transforms == None:
-            self.transforms = torchvision.transforms.ToTensor()
-        else:
-            self.transforms = transforms
+        self.transforms = transforms or emnist_transform()
+
         self.dataset = torchvision.datasets.EMNIST(
             root=data_dir,
-            split="balanced",
+            split="digits",
             train=train,
             download=download,
-            transform=None
+            transform=self.transforms
         )
 
     def __len__(self):
@@ -30,8 +31,6 @@ class EMNIST(BaseDataset):
 
     def __getitem__(self, idx: int):
         image, label = self.dataset[idx]
-        if self.transforms:
-            image = self.transforms(image)
         return image, label
 
 
@@ -81,5 +80,4 @@ if __name__ == "__main__":
     test_loader = dataloader.get_test_dataloader()
     train_loader = dataloader.get_train_dataloader()
     for batch, labels in train_loader:
-        print(f"Batch shape: {batch.shape}")
-        print(f"Labels shape: {labels.shape}")
+        print(batch[0].min(), batch[0].max(), labels[0])
