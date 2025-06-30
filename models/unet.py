@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import List
-from .embedding import TimeEmbedding
+from models.embedding import TimeEmbedding
 
 
 class ConvBlock(nn.Module):
@@ -14,8 +14,7 @@ class ConvBlock(nn.Module):
                  normalization: nn.Module = nn.BatchNorm2d,
                  activation: nn.Module = nn.ReLU(),
                  embedding_dim: int = 100,
-                 up_sample=False,
-                 use_sinusoidal: bool = False):
+                 up_sample=False):
         super().__init__()
         self.up_sample = up_sample
         self.embedding_dim = embedding_dim
@@ -45,15 +44,15 @@ class ConvBlock(nn.Module):
             )
 
         if embedding_dim is not None:
-            self.time_embedding = TimeEmbedding(
-                embed_dim=embedding_dim, projection_featues=out_channels, use_sinusoidal=use_sinusoidal)
-        else:
-            self.time_embedding = None
+            self.time_projection = nn.Linear(embedding_dim, out_channels)
 
-    def forward(self, x: torch.Tensor, t_emb) -> torch.Tensor:
+        else:
+            self.time_projection = None
+
+    def forward(self, x: torch.Tensor, t_emb: torch.Tensor) -> torch.Tensor:
         x = self.convs(x)
-        if self.time_embedding is not None and t_emb is not None:
-            t_proj = self.time_embedding(t_emb).unsqueeze(-1).unsqueeze(-1)
+        if self.time_projection is not None and t_emb is not None:
+            t_proj = self.time_projection(t_emb).unsqueeze(-1).unsqueeze(-1)
             x = x + t_proj
 
         return x
@@ -65,11 +64,11 @@ class Unet(nn.Module):
         in_channels: int,
         out_channels: int,
         channels_list: List[int],
-        embedding_dim: int = 100,
-        use_sinusoidal: bool = False
+        embedding_dim: int = 100
     ):
         super().__init__()
         self.embedding_dim = embedding_dim
+        self.time_embedding = TimeEmbedding(embed_dim=embedding_dim)
 
         self.initial = nn.ModuleList([
             ConvBlock(
@@ -77,8 +76,7 @@ class Unet(nn.Module):
                 channels_list[0],
                 stride=1,
                 embedding_dim=embedding_dim,
-                up_sample=False,
-                use_sinusoidal=use_sinusoidal
+                up_sample=False
             ),
             ConvBlock(
                 channels_list[0],
@@ -86,7 +84,6 @@ class Unet(nn.Module):
                 stride=1,
                 embedding_dim=embedding_dim,
                 up_sample=False,
-                use_sinusoidal=use_sinusoidal
             )
         ])
 
@@ -153,30 +150,29 @@ class Unet(nn.Module):
             ])
             self.ups.append(blocks)
 
-        self.final = nn.Sequential(
-            nn.Conv2d(channels_list[0], out_channels, kernel_size=1),
-            nn.Sigmoid())
+        self.final = nn.Conv2d(channels_list[0], out_channels, kernel_size=1)
 
     def forward(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+        t_emb = self.time_embedding(t)
         skips = []
         for block in self.initial:
-            x = block(x, t)
+            x = block(x, t_emb)
         skips.append(x)
         for i, down_blocks in enumerate(self.downs):
             for block in down_blocks:
-                x = block(x, t)
+                x = block(x, t_emb)
             if i < len(self.downs) - 1:
                 skips.append(x)
 
         for block in self.bottleneck:
-            x = block(x, t)
+            x = block(x, t_emb)
 
         for up_blocks in self.ups:
-            x = up_blocks[0](x, t)
+            x = up_blocks[0](x, t_emb)
             skip = skips.pop()
             x = torch.cat([x, skip], dim=1)
-            x = up_blocks[1](x, t)
-            x = up_blocks[2](x, t)
+            x = up_blocks[1](x, t_emb)
+            x = up_blocks[2](x, t_emb)
         return self.final(x)
 
 
@@ -186,7 +182,6 @@ if __name__ == "__main__":
         out_channels=1,
         channels_list=[32, 64, 128],
         embedding_dim=100,
-        use_sinusoidal=False
     )
 
     x = torch.randn(4, 1, 28, 28)
