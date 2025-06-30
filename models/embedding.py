@@ -48,27 +48,29 @@ class Sinusoidal_Embedding(nn.Module):
 
 
 class TimeEmbedding(nn.Module):
-    def __init__(self, embed_dim: int, projection_featues: int, use_sinusoidal: bool = False):
+    def __init__(self, embed_dim: int, kind: str = "fourrier"):
         super().__init__()
-        self.embed_dim = embed_dim
-        self.linears = nn.Sequential(
-            nn.Linear(in_features=embed_dim, out_features=projection_featues),
-            nn.ReLU()
-        )
-        if use_sinusoidal:
-            self.embedding = Sinusoidal_Embedding(embed_dim=embed_dim)
-        else:
-            self.embedding = FourrierFeatureEmbedding(embed_dim=embed_dim)
 
-    def forward(self, t):
+        assert kind in [
+            "fourrier", "sinusoidal"], "Embedding type should be fourrier or sinusoidal"
+
+        if kind == "fourrier":
+            self.embedding = FourrierFeatureEmbedding(embed_dim=embed_dim)
+        else:
+            self.embedding = Sinusoidal_Embedding(embed_dim=embed_dim)
+
+    def forward(self, t: torch.Tensor):
         t = self.embedding(t)
-        return self.linears(t)
+        return t
 
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    gaussian_fourier_embedding = FourrierFeatureEmbedding(64, 10)
+    gaussian_fourier_embedding = FourrierFeatureEmbedding(64)
     sinusoidal_embedding = Sinusoidal_Embedding(64)
     emb = gaussian_fourier_embedding(torch.tensor(4.))
     emb2 = sinusoidal_embedding(torch.tensor(4.))
-    print(emb.shape, emb2.shape)
+    embedding = TimeEmbedding(64)
+    emb3 = embedding(torch.tensor(4.))
+    print(emb.shape, emb2.shape, emb3.shape)
+    print(torch.isclose(emb3, emb))
