@@ -64,6 +64,22 @@ class TimeEmbedding(nn.Module):
         return t
 
 
+class LabelEmbedding(nn.Module):
+    def __init__(self, num_classes: int = 10, embed_dim: int = 100):
+        """
+        class embedding for classifier-free guidance.. default number of classes is 10 coz am using emnist digits
+        """
+        super().__init__()
+        self.embedding = nn.Embedding(
+            num_embeddings=num_classes, embedding_dim=embed_dim)
+
+    def forward(self, labels: torch.Tensor):
+        """
+        labels shape: [batch_size]
+        """
+        return self.embedding(labels)
+
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     gaussian_fourier_embedding = FourrierFeatureEmbedding(64)
@@ -74,3 +90,7 @@ if __name__ == "__main__":
     emb3 = embedding(torch.tensor(4.))
     print(emb.shape, emb2.shape, emb3.shape)
     print(torch.isclose(emb3, emb))
+    label_embedding = LabelEmbedding(num_classes=10, embed_dim=64)
+    labels = torch.tensor([0, 1, 2, 3])
+    emb4 = label_embedding(labels)
+    print(emb4.shape)
