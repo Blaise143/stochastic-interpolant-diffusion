@@ -17,15 +17,37 @@ class EulerMaruyamaSolver:
         return x_next
 
     def sample_loop(self, shape=(4, 1, 28, 28)):
-        xt = torch.randn(shape, device =self.device)
+        xt = torch.randn(shape, device=self.device)
         for i in range(self.num_steps):
-            t = torch.full((shape[0],1), 1-i/self.num_steps, device=self.device)
+            t = torch.full((shape[0], 1), 1-i /
+                           self.num_steps, device=self.device)
             xt = self.step(xt, t)
         return xt
 
     def get_drift(self, xt, t):
         eps_pred = self.model(xt, t)
         drift = (xt - eps_pred)/t.view(-1, 1, 1, 1)
+        return drift
+
+    def get_score(self, xt, t):
+        eps_pred = self.model(xt, t)
+        alpha = t.view(-1, 1, 1, 1)
+        beta = 1-alpha
+        score = eps_pred/(-beta)
+        return score
+
+    def drift(self, xt, t):
+        """
+        Probability flow ode
+        """
+        alpha = t.view(-1, 1, 1, 1)
+        beta = 1-alpha
+        alpha_dot = torch.full(
+            size=(alpha.shape), fill_value=1, device=xt.device)
+        beta_dot = -1*alpha_dot
+        multiple = beta**2 * (alpha_dot/alpha - beta_dot*beta)
+        score = self.score(xt, t)
+        drift = multiple*score + (alpha_dot/alpha)*xt
         return drift
 
 
