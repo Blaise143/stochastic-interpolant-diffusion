@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import List
-from models.embedding import TimeEmbedding
+from typing import List, Optional
+from models.embedding import TimeEmbedding, LabelEmbedding
 
 
 class ConvBlock(nn.Module):
@@ -64,11 +64,13 @@ class Unet(nn.Module):
         in_channels: int,
         out_channels: int,
         channels_list: List[int],
-        embedding_dim: int = 100
+        embedding_dim: int = 100,
+        num_classes: int = 10
     ):
         super().__init__()
         self.embedding_dim = embedding_dim
         self.time_embedding = TimeEmbedding(embed_dim=embedding_dim)
+        self.label_embedding = LabelEmbedding(10, embedding_dim)
 
         self.initial = nn.ModuleList([
             ConvBlock(
@@ -152,27 +154,35 @@ class Unet(nn.Module):
 
         self.final = nn.Conv2d(channels_list[0], out_channels, kernel_size=1)
 
-    def forward(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, t: torch.Tensor, labels: Optional[torch.Tensor] = None) -> torch.Tensor:
+
         t_emb = self.time_embedding(t)
+
+        if labels is not None:
+            label_emb = self.label_embedding(labels)
+            combined_embeddings = t_emb + label_emb
+        else:
+            combined_embeddings = t_emb
         skips = []
         for block in self.initial:
-            x = block(x, t_emb)
+            x = block(x, combined_embeddings)
+
         skips.append(x)
         for i, down_blocks in enumerate(self.downs):
             for block in down_blocks:
-                x = block(x, t_emb)
+                x = block(x, combined_embeddings)
             if i < len(self.downs) - 1:
                 skips.append(x)
 
         for block in self.bottleneck:
-            x = block(x, t_emb)
+            x = block(x, combined_embeddings)
 
         for up_blocks in self.ups:
-            x = up_blocks[0](x, t_emb)
+            x = up_blocks[0](x, combined_embeddings)
             skip = skips.pop()
             x = torch.cat([x, skip], dim=1)
-            x = up_blocks[1](x, t_emb)
-            x = up_blocks[2](x, t_emb)
+            x = up_blocks[1](x, combined_embeddings)
+            x = up_blocks[2](x, combined_embeddings)
         return self.final(x)
 
 
@@ -188,3 +198,12 @@ if __name__ == "__main__":
     t = torch.rand(4)
     output = model(x, t)
     print(output.shape, x.shape)
+
+    output1 = model(x, t)
+
+    labels = torch.randint(0, 10, (4,))
+    output2 = model(x, t, labels)
+
+    print("Unconditional output shape:", output1.shape)
+    print("Conditional output shape:", output2.shape)
+    print("Input shape:", x.shape)

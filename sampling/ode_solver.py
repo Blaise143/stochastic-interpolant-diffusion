@@ -10,18 +10,18 @@ class EulerSolver:
         self.num_steps = num_steps
         self.device = next(model.parameters()).device
 
-    def step(self, xt, t):
+    def step(self, xt, t, labels=None, guidance_scale=None):
         """
         One step of Euler's method
         """
-        drift = self.model(xt, t)
+        drift = self.model(xt, t, labels, guidance_scale)
         x_next = xt + drift*self.h
         return x_next
 
-    def sample_loop(self, shape=(4, 1, 28, 28)):
+    def sample_loop(self, shape=(4, 1, 28, 28), labels=None, guidance_scale=None):
         xt = torch.randn(shape, device=self.device)
         for i in range(self.num_steps):
             t = torch.full((shape[0], 1), i /
                            self.num_steps, device=self.device)
-            xt = self.step(xt, t)
+            xt = self.step(xt, t, labels, guidance_scale)
         return xt
