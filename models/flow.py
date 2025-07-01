@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from models.stochastic_interpolant import StochasticInterpolant
 from models.unet import Unet
+import random
 
 
 class Flow(StochasticInterpolant):
@@ -43,6 +44,8 @@ class Flow(StochasticInterpolant):
         if labels is not None and guidance_scale > 0:
             unguided = self.vector_field(x, t)
             guided = self.vector_field(x, t, labels)
+            if random.random() < 0.1:
+                guidance_scale = 0
             return unguided + guidance_scale*(guided-unguided)
         else:
             return self.vector_field(x, t, labels)
