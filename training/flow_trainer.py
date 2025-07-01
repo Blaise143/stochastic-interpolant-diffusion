@@ -7,6 +7,7 @@ from data.dataset import EMNISTDataLoader
 import torchvision
 from torch.utils.data import TensorDataset, DataLoader  # for sanity check later
 from tqdm import tqdm
+import random
 
 
 def get_device():
@@ -37,6 +38,7 @@ def train(
         "guidance_scale": guidance_scale
     })
 
+    p_drop = 0.1
     dataloader = EMNISTDataLoader(data_dir=data_dir, batch_size=batch_size)
     train_loader = dataloader.get_train_dataloader()
 
@@ -50,6 +52,8 @@ def train(
         for batch, labels in train_loader:
             batch = batch.to(device)
             labels = labels.to(device)
+            if random.random() < p_drop:
+                labels = None
             optimizer.zero_grad()
             if guided:
                 loss = model.compute_loss(batch, labels)
