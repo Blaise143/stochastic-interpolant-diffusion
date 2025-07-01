@@ -44,7 +44,7 @@ class Flow(StochasticInterpolant):
         if labels is not None and guidance_scale > 0:
             unguided = self.vector_field(x, t)
             guided = self.vector_field(x, t, labels)
-            if random.random() < 0.1:
+            if random.random() < 0.2:
                 guidance_scale = 0
             return unguided + guidance_scale*(guided-unguided)
         else:
@@ -53,10 +53,8 @@ class Flow(StochasticInterpolant):
     def forward(self, x, t=None, labels=None, guidance_scale=None):
         if t is None:
             xt, t, target_vector_field, labels = self.sample(x, labels)
-            # return self.vector_field(xt, t)
             return self.get_vector_field(xt, t, labels, guidance_scale)
         else:
-            # return self.vector_field(x, t)
             return self.get_vector_field(x, t, labels, guidance_scale)
 
     def compute_loss(self, x, labels=None):
