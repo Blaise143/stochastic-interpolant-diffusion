@@ -56,7 +56,7 @@ def train(
         total_correct = 0
         train_total = 0
 
-        # train_correct = 0
+        train_correct = 0
         # total_correct = 0
 
         for batch, labels in train_loader:
