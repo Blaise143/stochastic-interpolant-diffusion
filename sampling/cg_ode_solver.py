@@ -1,6 +1,6 @@
 import torch
 from models.flow import Flow
-from models.classifier import Classifier
+from models.classifier import NoisyClassifier
 from sampling.ode_solver import EulerSolver
 
 
@@ -21,7 +21,7 @@ class ClassifierGuidedSampler:
     def __init__(
         self,
         flow_model: Flow,
-        classifier: Classifier,
+        classifier: NoisyClassifier,
         num_steps: int = 500,
         guidance_scale: float = 1.0,
     ):
@@ -83,7 +83,7 @@ def sample_with_classifier_guidance(
         flow_model_path, map_location=device))
     flow_model.eval()
 
-    classifier = Classifier().to(device)
+    classifier = NoisyClassifier().to(device)
     classifier.load_state_dict(torch.load(
         classifier_model_path, map_location=device))
     classifier.eval()

@@ -1,7 +1,7 @@
 import torch
 from torch.optim import Adam
 import wandb
-from models.classifier import Classifier
+from models.classifier import NoisyClassifier
 from models.flow import Flow
 from data.dataset import EMNISTDataLoader
 import torchvision
@@ -33,7 +33,7 @@ def train(
     dataloader = EMNISTDataLoader(data_dir=data_dir, batch_size=batch_size)
     train_loader = dataloader.get_train_dataloader()
 
-    classifier = Classifier(
+    classifier = NoisyClassifier(
         in_channels=1,
         num_classes=10,
         channels_list=[32, 64, 128],

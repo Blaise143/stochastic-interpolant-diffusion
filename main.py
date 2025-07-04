@@ -57,7 +57,7 @@ if __name__ == "__main__":
             epochs=args.epochs,
             batch_size=args.batch_size,
             lr=args.lr,
-            num_steps=args.num_steps
+            # num_steps=args.num_steps
         )
 
     elif args.mode == "sample":
