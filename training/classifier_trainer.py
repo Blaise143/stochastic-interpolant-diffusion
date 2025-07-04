@@ -56,8 +56,8 @@ def train(
         total_correct = 0
         train_total = 0
 
-        train_correct = 0
-        total_correct = 0
+        # train_correct = 0
+        # total_correct = 0
 
         for batch, labels in train_loader:
             batch = batch.to(device)
@@ -78,7 +78,7 @@ def train(
                 logits = classifier(noisy_batch, t)
                 correct, total = get_accuracy(logits, labels)
                 train_correct += correct
-                total_correct += total
+                train_total += total
 
             total_loss += loss.item()
 
