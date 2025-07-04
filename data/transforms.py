@@ -1,12 +1,18 @@
 import torchvision
 
 
+def rotate_90(img):
+    return torchvision.transforms.functional.rotate(img, -90)
+
+
+def hflip(img):
+    return torchvision.transforms.functional.hflip(img)
+
+
 def emnist_transform():
     return torchvision.transforms.Compose([
-        torchvision.transforms.Lambda(
-            lambda x: torchvision.transforms.functional.rotate(x, -90)),
-        torchvision.transforms.Lambda(
-            lambda x: torchvision.transforms.functional.hflip(x)),
+        rotate_90,
+        hflip,
         torchvision.transforms.ToTensor(),
         torchvision.transforms.Normalize((0.5,), (0.5,))
     ])
