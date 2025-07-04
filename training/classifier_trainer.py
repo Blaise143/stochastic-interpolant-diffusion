@@ -17,6 +17,13 @@ def get_device():
         return torch.device("cpu")
 
 
+def get_accuracy(logits, labels):
+    preds = torch.argmax(logits, dim=1)
+    correct = (preds == labels).sum().item()
+    total = labels.size(0)
+    return correct, total
+
+
 def train(
     data_dir="dataset",
     epochs=10,
@@ -46,6 +53,12 @@ def train(
         classifier.train()
         total_loss = 0
 
+        total_correct = 0
+        train_total = 0
+
+        train_correct = 0
+        total_correct = 0
+
         for batch, labels in train_loader:
             batch = batch.to(device)
             labels = labels.to(device)
@@ -61,10 +74,18 @@ def train(
             loss.backward()
             optimizer.step()
 
+            with torch.no_grad():
+                logits = classifier(noisy_batch, t)
+                correct, total = get_accuracy(logits, labels)
+                train_correct += correct
+                total_correct += total
+
             total_loss += loss.item()
 
         avg_loss = total_loss / len(train_loader)
-        wandb.log({"loss": avg_loss, "epoch": epoch + 1})
+        train_acc = train_correct/train_total
+
+        wandb.log({"loss": avg_loss, "epoch": epoch + 1, "accuracy": train_acc})
         print(f"Epoch {epoch+1}/{epochs} | Loss: {avg_loss:.4f}")
 
         if epoch % 5 == 0 or epoch == epochs - 1:
