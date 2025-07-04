@@ -96,7 +96,8 @@ class NoisyClassifier(nn.Module):
         """
         Gradient of log p(y|x,t) wrt x
         """
-        x.requires_grad_(True)
+        # x.requires_grad_(True)
+        x = x.clone().detach().requires_grad_(True)
 
         logits = self(x, t)
         log_probs = F.log_softmax(logits, dim=-1)
