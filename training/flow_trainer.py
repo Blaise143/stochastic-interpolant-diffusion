@@ -88,60 +88,8 @@ def train(
                 wandb.log({"unguided_samples": wandb.Image(unguided_grid)})
 
     if guided:
-        torch.save(model.state_dict(), "cf_guidance_flow_model.pth")
+        torch.save(model.state_dict(),
+                   "checkpoints/cf_guidance_flow_model.pth")
     else:
-        torch.save(model.state_dict(), "flow_model.pth")
-    wandb.finish()
-
-
-def train_one_example(
-        data_dir="dataset",
-        epochs=10,
-        lr=1e-3,
-        num_steps=10,
-        device=get_device(),
-        guided=False,
-        guidance_scale=7.):
-    """
-    Will complete this for guidance later, only works for unguided so far
-    """
-
-    wandb.init(project="one-example-overfitting", config={
-        "epochs": epochs,
-        "learning_rate": lr,
-        "num_steps": num_steps,
-    })
-
-    orig_loader = EMNISTDataLoader(
-        data_dir=data_dir, batch_size=1, num_workers=0).get_train_dataloader()
-    one_batch = next(iter(orig_loader))
-    x, y = one_batch
-
-    dataset = TensorDataset(x, y)
-    train_loader = DataLoader(dataset, batch_size=1,
-                              shuffle=False, num_workers=0)
-
-    model = Flow().to(device)
-    optimizer = Adam(model.parameters(), lr=lr)
-    solver = EulerSolver(model, num_steps=num_steps)
-
-    for epoch in range(epochs):
-        model.train()
-        for batch, _ in train_loader:
-            batch = batch.to(device)
-            optimizer.zero_grad()
-            loss = model.compute_loss(batch)
-            loss.backward()
-            optimizer.step()
-            wandb.log({"loss": loss.item(), "epoch": epoch + 1})
-            print(f"Epoch {epoch+1}/{epochs} | Loss: {loss.item():.4f}")
-
-        model.eval()
-        with torch.no_grad():
-            samples = solver.sample_loop(shape=(1, 1, 28, 28))
-            samples = samples.clamp(0, 1).cpu()
-            grid = torchvision.utils.make_grid(samples, nrow=1)
-            wandb.log({"samples": wandb.Image(grid)})
-
-    torch.save(model.state_dict(), "flow_model_one_example.pth")
+        torch.save(model.state_dict(), "checkpoints/flow_model.pth")
     wandb.finish()
