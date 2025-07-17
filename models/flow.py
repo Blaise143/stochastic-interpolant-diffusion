@@ -39,14 +39,12 @@ class Flow(StochasticInterpolant):
 
     def get_vector_field(self, x, t, labels=None, guidance_scale=None):
         if guidance_scale is None:
-            guidance_scale = self.guidance_scale
+            guidance_scale = 0
 
-        if labels is not None and guidance_scale > 0:
+        if labels is not None:
             unguided = self.vector_field(x, t)
             guided = self.vector_field(x, t, labels)
-            if random.random() < 0.2:
-                guidance_scale = 0
-            return unguided + guidance_scale*(guided-unguided)
+            return (1-guidance_scale)*unguided + guidance_scale*guided
         else:
             return self.vector_field(x, t, labels)
 

@@ -26,7 +26,8 @@ def train(
     num_steps=500,
     device=get_device(),  # "cuda" if torch.cuda.is_available() else "cpu"
     guided=False,
-    guidance_scale=7.
+    guidance_scale=7.,
+    model_path="checkpoint/flow_model.pth"
 ):
     wandb.init(project="Flow-Matching-Emnist", config={
         "epochs": epochs,
@@ -37,7 +38,6 @@ def train(
         "guidance_scale": guidance_scale
     })
 
-    p_drop = 0.1
     dataloader = EMNISTDataLoader(data_dir=data_dir, batch_size=batch_size)
     train_loader = dataloader.get_train_dataloader()
 
@@ -86,10 +86,5 @@ def train(
                 unguided_grid = torchvision.utils.make_grid(
                     unguided_samples, nrow=4)
                 wandb.log({"unguided_samples": wandb.Image(unguided_grid)})
-
-    if guided:
-        torch.save(model.state_dict(),
-                   "checkpoints/cf_guidance_flow_model.pth")
-    else:
-        torch.save(model.state_dict(), "checkpoints/flow_model.pth")
+    torch.save(model.state_dict(), model_path)
     wandb.finish()
