@@ -24,7 +24,7 @@ def train(
     batch_size=200,
     lr=1e-3,
     num_steps=500,
-    device=get_device(),  # "cuda" if torch.cuda.is_available() else "cpu"
+    device=get_device(),
     guided=False,
     guidance_scale=7.,
     model_path="checkpoint/flow_model.pth"
