@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from models.stochastic_interpolant import StochasticInterpolant
+from models.stochastic_interpolant_base import StochasticInterpolant
 from models.unet import Unet
 import random
 
