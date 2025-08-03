@@ -62,7 +62,10 @@ class Flow(StochasticInterpolant):
         loss = self.criterion(pred, target_vector_field)
         return loss
 
-    def get_score(self, x: torch.Tensor, t: torch.Tensor=None, labels=None, guidance_scale=None, sigma = 0.6):
+    def get_score(self, x: torch.Tensor, 
+                  t: torch.Tensor=None, 
+                  labels=None, 
+                  guidance_scale=None, sigma = 0.6):
         u_t = self(x, t, labels, guidance_scale)
 
         alpha_t = t.view(-1, 1, 1, 1)
