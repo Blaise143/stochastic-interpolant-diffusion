@@ -6,15 +6,17 @@ from models.embedding import TimeEmbedding, LabelEmbedding
 
 
 class ConvBlock(nn.Module):
-    def __init__(self,
-                 in_channels: int,
-                 out_channels: int,
-                 kernel_size: int = 3,
-                 stride: int = 1,
-                 normalization: nn.Module = nn.BatchNorm2d,
-                 activation: nn.Module = nn.ReLU(),
-                 embedding_dim: int = 100,
-                 up_sample=False):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int = 3,
+        stride: int = 1,
+        normalization: type[nn.BatchNorm2d] = nn.BatchNorm2d,
+        activation: nn.Module = nn.ReLU(),
+        embedding_dim: int = 100,
+        up_sample=False,
+    ):
         super().__init__()
         self.up_sample = up_sample
         self.embedding_dim = embedding_dim
@@ -25,10 +27,10 @@ class ConvBlock(nn.Module):
                     in_channels=in_channels,
                     out_channels=out_channels,
                     kernel_size=2,
-                    stride=2
+                    stride=2,
                 ),
                 normalization(out_channels),
-                activation
+                activation,
             )
         else:
             self.convs = nn.Sequential(
@@ -37,10 +39,10 @@ class ConvBlock(nn.Module):
                     out_channels=out_channels,
                     kernel_size=kernel_size,
                     stride=stride,
-                    padding=kernel_size // 2
+                    padding=kernel_size // 2,
                 ),
                 normalization(out_channels),
-                activation
+                activation,
             )
 
         if embedding_dim is not None:
@@ -65,96 +67,106 @@ class Unet(nn.Module):
         out_channels: int,
         channels_list: List[int],
         embedding_dim: int = 100,
-        num_classes: int = 10
+        num_classes: int = 10,
     ):
         super().__init__()
         self.embedding_dim = embedding_dim
         self.time_embedding = TimeEmbedding(embed_dim=embedding_dim)
         self.label_embedding = LabelEmbedding(10, embedding_dim)
 
-        self.initial = nn.ModuleList([
-            ConvBlock(
-                in_channels,
-                channels_list[0],
-                stride=1,
-                embedding_dim=embedding_dim,
-                up_sample=False
-            ),
-            ConvBlock(
-                channels_list[0],
-                channels_list[0],
-                stride=1,
-                embedding_dim=embedding_dim,
-                up_sample=False,
-            )
-        ])
+        self.initial = nn.ModuleList(
+            [
+                ConvBlock(
+                    in_channels,
+                    channels_list[0],
+                    stride=1,
+                    embedding_dim=embedding_dim,
+                    up_sample=False,
+                ),
+                ConvBlock(
+                    channels_list[0],
+                    channels_list[0],
+                    stride=1,
+                    embedding_dim=embedding_dim,
+                    up_sample=False,
+                ),
+            ]
+        )
 
         self.downs = nn.ModuleList()
         for i in range(len(channels_list) - 1):
-            blocks = nn.ModuleList([
-                ConvBlock(
-                    channels_list[i],
-                    channels_list[i+1],
-                    stride=2,
-                    embedding_dim=embedding_dim,
-                    up_sample=False
-                ),
-                ConvBlock(
-                    channels_list[i+1],
-                    channels_list[i+1],
-                    stride=1,
-                    embedding_dim=embedding_dim,
-                    up_sample=False
-                )
-            ])
+            blocks = nn.ModuleList(
+                [
+                    ConvBlock(
+                        channels_list[i],
+                        channels_list[i + 1],
+                        stride=2,
+                        embedding_dim=embedding_dim,
+                        up_sample=False,
+                    ),
+                    ConvBlock(
+                        channels_list[i + 1],
+                        channels_list[i + 1],
+                        stride=1,
+                        embedding_dim=embedding_dim,
+                        up_sample=False,
+                    ),
+                ]
+            )
             self.downs.append(blocks)
 
-        self.bottleneck = nn.ModuleList([
-            ConvBlock(
-                channels_list[-1],
-                channels_list[-1],
-                stride=1,
-                embedding_dim=embedding_dim,
-                up_sample=False
-            ),
-            ConvBlock(
-                channels_list[-1],
-                channels_list[-1],
-                stride=1,
-                embedding_dim=embedding_dim,
-                up_sample=False
-            )
-        ])
+        self.bottleneck = nn.ModuleList(
+            [
+                ConvBlock(
+                    channels_list[-1],
+                    channels_list[-1],
+                    stride=1,
+                    embedding_dim=embedding_dim,
+                    up_sample=False,
+                ),
+                ConvBlock(
+                    channels_list[-1],
+                    channels_list[-1],
+                    stride=1,
+                    embedding_dim=embedding_dim,
+                    up_sample=False,
+                ),
+            ]
+        )
 
         self.ups = nn.ModuleList()
         for i in reversed(range(len(channels_list) - 1)):
-            blocks = nn.ModuleList([
-                ConvBlock(
-                    channels_list[i+1],
-                    channels_list[i],
-                    up_sample=True,
-                    embedding_dim=embedding_dim
-                ),
-                ConvBlock(
-                    channels_list[i] * 2,
-                    channels_list[i],
-                    stride=1,
-                    embedding_dim=embedding_dim,
-                    up_sample=False
-                ),
-                ConvBlock(
-                    channels_list[i],
-                    channels_list[i],
-                    stride=1,
-                    embedding_dim=embedding_dim,
-                    up_sample=False
-                )
-            ])
+            blocks = nn.ModuleList(
+                [
+                    ConvBlock(
+                        channels_list[i + 1],
+                        channels_list[i],
+                        up_sample=True,
+                        embedding_dim=embedding_dim,
+                    ),
+                    ConvBlock(
+                        channels_list[i] * 2,
+                        channels_list[i],
+                        stride=1,
+                        embedding_dim=embedding_dim,
+                        up_sample=False,
+                    ),
+                    ConvBlock(
+                        channels_list[i],
+                        channels_list[i],
+                        stride=1,
+                        embedding_dim=embedding_dim,
+                        up_sample=False,
+                    ),
+                ]
+            )
             self.ups.append(blocks)
 
         self.final = nn.Conv2d(channels_list[0], out_channels, kernel_size=1)
 
-    def forward(self, x: torch.Tensor, t: torch.Tensor, labels: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, t: torch.Tensor, labels: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
 
         t_emb = self.time_embedding(t)
 

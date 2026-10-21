@@ -1,23 +1,37 @@
+from typing import Optional
+
 import torch
 import torch.nn as nn
+
 from models.stochastic_interpolant_base import StochasticInterpolant
 from models.unet import Unet
-import random
 
 
 class Flow(StochasticInterpolant):
-    def __init__(self,  model=Unet(in_channels=1,
-                                   out_channels=1,
-                                   channels_list=[32, 64, 128],
-                                   embedding_dim=100,),
-                 num_classes=10,
-                 guidance_scale=7.):
+    """A flow matching class.
+
+    Attributes:
+        vector_field: The model parametrizing the vector field
+        criterion: The loss function for supervised learning
+        guidance_scale: the guidance scale for classifier free guidance
+    """
+
+    def __init__(
+        self,
+        model=Unet(
+            in_channels=1,
+            out_channels=1,
+            channels_list=[32, 64, 128],
+            embedding_dim=100,
+        ),
+        guidance_scale: float = 7.0,
+    ):
         super().__init__()
         self.vector_field = model
         self.criterion = nn.MSELoss()
         self.guidance_scale = guidance_scale
 
-    def sample(self, x: torch.Tensor, labels=None):
+    def sample(self, x: torch.Tensor, labels: Optional[torch.Tensor] = None):
         """
         Returns xt from the probability path
 
@@ -31,8 +45,8 @@ class Flow(StochasticInterpolant):
         eps = torch.randn_like(x)
         t_broadcast = t.view(-1, 1, 1, 1)
         alpha = t_broadcast
-        beta = 1-t_broadcast
-        xt = alpha*x + beta*eps
+        beta = 1 - t_broadcast
+        xt = alpha * x + beta * eps
 
         target_vector_field = x - eps
         return xt, t, target_vector_field, labels
@@ -44,13 +58,13 @@ class Flow(StochasticInterpolant):
         if labels is not None:
             unguided = self.vector_field(x, t)
             guided = self.vector_field(x, t, labels)
-            return (1-guidance_scale)*unguided + guidance_scale*guided
+            return (1 - guidance_scale) * unguided + guidance_scale * guided
         else:
             return self.vector_field(x, t, labels)
 
     def forward(self, x, t=None, labels=None, guidance_scale=None):
         if t is None:
-            xt, t, target_vector_field, labels = self.sample(x, labels)
+            xt, t, _, labels = self.sample(x, labels)
             return self.get_vector_field(xt, t, labels, guidance_scale)
         else:
             return self.get_vector_field(x, t, labels, guidance_scale)
@@ -62,10 +76,14 @@ class Flow(StochasticInterpolant):
         loss = self.criterion(pred, target_vector_field)
         return loss
 
-    def get_score(self, x: torch.Tensor, 
-                  t: torch.Tensor=None, 
-                  labels=None, 
-                  guidance_scale=None, sigma = 0.6):
+    def get_score(
+        self,
+        x: torch.Tensor,
+        t: Optional[torch.Tensor] = None,
+        labels=None,
+        guidance_scale=None,
+        sigma=0.6,
+    ):
         u_t = self(x, t, labels, guidance_scale)
 
         alpha_t = t.view(-1, 1, 1, 1)
@@ -75,7 +93,9 @@ class Flow(StochasticInterpolant):
         dot_beta_t = -torch.ones_like(beta_t)
 
         sigma_t = torch.full_like(alpha_t, sigma)
-        C_t = (beta_t**2 / alpha_t) * dot_alpha_t - dot_beta_t * beta_t + (sigma_t**2) / 2
+        C_t = (
+            (beta_t**2 / alpha_t) * dot_alpha_t - dot_beta_t * beta_t + (sigma_t**2) / 2
+        )
 
         score = (1 / C_t) * (u_t - (dot_alpha_t / alpha_t) * x)
 

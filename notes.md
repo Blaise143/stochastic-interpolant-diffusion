@@ -1,0 +1,4 @@
+- blur image
+- coordinate system
+- use sam3d's rendering 
+- check SAM3D outputs 

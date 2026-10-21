@@ -1,6 +1,5 @@
 import torch.nn as nn
 import torch
-from typing import Union
 import math
 
 
@@ -10,28 +9,47 @@ class FourrierFeatureEmbedding(nn.Module):
     might ideally work better than sinusoidal embeddings for stochastic interpolants
     """
 
-    def __init__(self, embed_dim: int, scale: float = 30.):
+    def __init__(self, embed_dim: int, scale: float = 30.0):
         super().__init__()
 
         assert embed_dim % 2 == 0
 
         self.embed_dim = embed_dim
         self.scale = scale
-        self.register_buffer('W', torch.randn(embed_dim//2)*scale)
+        self.register_buffer("W", torch.randn(embed_dim // 2) * scale)
 
     def forward(self, t: torch.Tensor):
         if t.ndim == 1:
             t = t[:, None]
-        proj = 2*math.pi * t*self.W[None, :]
+        proj = 2 * math.pi * t * self.W[None, :]  # pyright: ignore
         return torch.cat([torch.sin(proj), torch.cos(proj)], dim=-1)
 
 
 class Sinusoidal_Embedding(nn.Module):
+    """Sinusoidal embeddings to be used for time
+
+    Attributes:
+        embed_dim: The length of the embeding vectors
+    """
+
     def __init__(self, embed_dim: int):
+        """This is some random ass function that I need to implement for some reason
+
+        Args:
+            embed_dim: The embedding dimension that is needed
+        """
         super().__init__()
         self.embed_dim = embed_dim
 
-    def forward(self, t: Union[torch.Tensor, float]):
+    def forward(self, t: torch.Tensor | float) -> torch.Tensor:
+        """This is a forward method of some random class
+
+        Args:
+            t: Some tensor
+
+        Returns:
+
+        """
         dim = self.embed_dim
         if not isinstance(t, torch.Tensor):
             t = torch.tensor([[t]])
@@ -49,10 +67,17 @@ class Sinusoidal_Embedding(nn.Module):
 
 class TimeEmbedding(nn.Module):
     def __init__(self, embed_dim: int, kind: str = "fourrier"):
+        """
+        Time embedding module. Depending on `kind`, a fourrier or sinusoidal embeding is used
+        Args:
+            embed_dim: Embedding dimension
+            kind: kind of embedding to be used
+        """
         super().__init__()
 
-        assert kind in [
-            "fourrier", "sinusoidal"], "Embedding type should be fourrier or sinusoidal"
+        assert kind in ["fourrier", "sinusoidal"], (
+            "Embedding type should be fourrier or sinusoidal"
+        )
 
         if kind == "fourrier":
             self.embedding = FourrierFeatureEmbedding(embed_dim=embed_dim)
@@ -65,13 +90,17 @@ class TimeEmbedding(nn.Module):
 
 
 class LabelEmbedding(nn.Module):
+    """Embedding for the labels to be used in classifier free guidance
+
+    Attributes:
+        embedding: label embeddings
+    """
+
     def __init__(self, num_classes: int = 10, embed_dim: int = 100):
-        """
-        class embedding for classifier-free guidance.. default number of classes is 10 coz am using emnist digits
-        """
         super().__init__()
         self.embedding = nn.Embedding(
-            num_embeddings=num_classes, embedding_dim=embed_dim)
+            num_embeddings=num_classes, embedding_dim=embed_dim
+        )
 
     def forward(self, labels: torch.Tensor):
         """
@@ -81,13 +110,12 @@ class LabelEmbedding(nn.Module):
 
 
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
     gaussian_fourier_embedding = FourrierFeatureEmbedding(64)
     sinusoidal_embedding = Sinusoidal_Embedding(64)
-    emb = gaussian_fourier_embedding(torch.tensor(4.))
-    emb2 = sinusoidal_embedding(torch.tensor(4.))
+    emb = gaussian_fourier_embedding(torch.tensor(4.0))
+    emb2 = sinusoidal_embedding(torch.tensor(4.0))
     embedding = TimeEmbedding(64)
-    emb3 = embedding(torch.tensor(4.))
+    emb3 = embedding(torch.tensor(4.0))
     print(emb.shape, emb2.shape, emb3.shape)
     print(torch.isclose(emb3, emb))
     label_embedding = LabelEmbedding(num_classes=10, embed_dim=64)
