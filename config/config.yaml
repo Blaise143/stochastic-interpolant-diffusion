@@ -1,0 +1,34 @@
+defaults:
+  - scheduler: linear
+  - solver: euler
+  - logger: none
+  - _self_
+
+# train_flow | sample
+mode: train_flow
+# flow | diffusion (sampling only)
+model_type: flow
+# use a Unet with bottleneck self-attention instead of pure CNN
+attention: false
+
+# shared
+device: cuda
+model_path: checkpoints/flow_model.pth
+guidance_scale: 7.5
+
+# training
+data_dir: dataset
+epochs: 1000
+batch_size: 200
+lr: 1e-3
+num_steps: 500
+guided: false
+
+# sampling only
+num_samples: 10
+digits: null
+save_path: null
+
+hydra:
+  job:
+    chdir: false

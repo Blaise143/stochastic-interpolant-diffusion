@@ -1,5 +1,6 @@
 import torch
-import argparse
+import hydra
+from omegaconf import DictConfig
 import torchvision
 from training.flow_trainer import train as train_flow
 from models.flow import Flow
@@ -31,61 +32,6 @@ def get_device(device_arg=None):
             return torch.device("mps")
         else:
             return torch.device("cpu")
-
-
-def parse_args():
-    """Parses CLI arguments for training (`--mode train_flow`) or sampling (`--mode sample`).
-
-    Returns:
-        The parsed argparse.Namespace.
-    """
-    parser = argparse.ArgumentParser(
-        description="Flow Matching")
-    parser.add_argument("--mode", type=str, default="train_flow",
-                        choices=["train_flow", "sample"],
-                        help="Mode to run in")
-    parser.add_argument("--model_type", type=str, default="flow",
-                        choices=["flow", "diffusion"],
-                        help="Model type for sampling (flow uses Euler, diffusion uses Euler Maruyama)")
-    parser.add_argument("--solver", type=str, default="euler",
-                        choices=["euler", "midpoint"],
-                        help="ODE solver type for flow model ('euler' or 'midpoint')")
-    parser.add_argument("--epochs", type=int, default=1000,
-                        help="Number of epochs")
-    parser.add_argument("--batch_size", type=int,
-                        default=200, help="Batch size")
-    parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
-    parser.add_argument("--num_steps", type=int, default=500,
-                        help="ode/sde solver sampling steps")
-
-    parser.add_argument("--guided", action="store_true",
-                        help="if flagged, guidance gotta kick in.. classifier freee guidance")
-    parser.add_argument("--guidance_scale", type=float,
-                        default=7.5, help="guidance scale")
-
-    # sampling
-    parser.add_argument("--model_path", type=str, default="checkpoints/flow_model.pth",
-                        help="Path to flow model checkpoint for sampling")
-    parser.add_argument("--num_samples", type=int, default=10,
-                        help="number of samples per class")
-    parser.add_argument("--digits", type=str, default=None,
-                        help="Specific digits to sample (comma-separated, e.g., '3,7,9'). If not provided, 0-9.")
-    parser.add_argument("--save_path", type=str, default=None,
-                        help="Path to save generated samples. If not provided, will be set to images/{model_type}_samples.png")
-    parser.add_argument("--device", type=str, default="cuda",
-                        choices=["cuda", "mps", "cpu"],
-                        help="Device used.")
-    parser.add_argument("--logger", type=str, default="none",
-                        choices=["none", "tensorboard", "wandb"],
-                        help="Logger type to use ('none', 'tensorboard', or 'wandb')")
-    parser.add_argument("--scheduler", type=str, default="linear",
-                        choices=["linear", "trigonometric", "polynomial"],
-                        help="Probability path scheduler type ('linear', 'trigonometric', or 'polynomial')")
-    parser.add_argument("--attention", action="store_true",
-                        help="if flagged, use a Unet with bottleneck self-attention instead of pure CNN")
-
-    args = parser.parse_args()
-    return args
 
 
 def sample(
@@ -144,7 +90,10 @@ def sample(
 
     if digits is not None:
         try:
-            parsed_digits = [int(d.strip()) for d in digits.split(',')]
+            if isinstance(digits, str):
+                parsed_digits = [int(d.strip()) for d in digits.split(',')]
+            else:
+                parsed_digits = [int(d) for d in digits]
             valid_digits = []
 
             for d in parsed_digits:
@@ -223,35 +172,41 @@ def sample(
     return all_samples
 
 
-if __name__ == "__main__":
-    args = parse_args()
-
-    if args.mode == "train_flow":
+@hydra.main(version_base=None, config_path="config", config_name="config")
+def main(cfg: DictConfig) -> None:
+    if cfg.mode == "train_flow":
         train_flow(
-            epochs=args.epochs,
-            batch_size=args.batch_size,
-            lr=args.lr,
-            num_steps=args.num_steps,
-            guided=args.guided,
-            guidance_scale=args.guidance_scale,
-            model_path=args.model_path,
-            logger_type=args.logger,
-            scheduler_type=args.scheduler,
-            use_attention=args.attention
+            data_dir=cfg.data_dir,
+            epochs=cfg.epochs,
+            batch_size=cfg.batch_size,
+            lr=cfg.lr,
+            num_steps=cfg.num_steps,
+            guided=cfg.guided,
+            guidance_scale=cfg.guidance_scale,
+            model_path=cfg.model_path,
+            logger_type=cfg.logger_type,
+            scheduler_type=cfg.scheduler_type,
+            use_attention=cfg.attention,
         )
-    elif args.mode == "sample":
+    elif cfg.mode == "sample":
         sample(
-            model_type=args.model_type,
-            solver_type=args.solver,
-            scheduler_type=args.scheduler,
-            model_path=args.model_path,
-            num_steps=args.num_steps,
-            num_samples=args.num_samples,
-            guided=args.guided,
-            guidance_scale=args.guidance_scale,
-            device=args.device,
-            logger_type=args.logger,
-            digits=args.digits,
-            save_path=args.save_path,
-            use_attention=args.attention
+            model_type=cfg.model_type,
+            solver_type=cfg.solver_type,
+            scheduler_type=cfg.scheduler_type,
+            model_path=cfg.model_path,
+            num_steps=cfg.num_steps,
+            num_samples=cfg.num_samples,
+            guided=cfg.guided,
+            guidance_scale=cfg.guidance_scale,
+            device=cfg.device,
+            logger_type=cfg.logger_type,
+            digits=cfg.digits,
+            save_path=cfg.save_path,
+            use_attention=cfg.attention,
         )
+    else:
+        raise ValueError(f"Unknown mode {cfg.mode!r}, expected 'train_flow' or 'sample'")
+
+
+if __name__ == "__main__":
+    main()
