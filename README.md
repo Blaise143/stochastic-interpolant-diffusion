@@ -18,51 +18,59 @@ To sample from the diffusion model, an SDE solver is used.
 Classifier-free guidance is also implemented 
 ***
 
-### Usage
-To recreate the project, follow these steps:
-Create a folder named `diffusion_project` and clone this repository inside it
+### Setup
 ```bash 
 git clone git@github.com:Blaise143/stochastic-interpolant-diffusion.git
-cd diffusion_project 
+cd stochastic-interpolant-diffusion
+pip install -e .
 ```
 
-#### Training the Vector Field
+### Usage
+Config is managed with [Hydra](https://hydra.cc) (`config/config.yaml`), so instead of `--flag value` you override
+any field with `key=value`, and Hydra prints `--help` for the full list. Every run's resolved config, logs, and
+outputs land in their own `outputs/<date>/<time>/` folder.
 
-To train the vector field for the flow and diffusion model without guidance:
+#### Training
+
+Train the flow model with the defaults (linear scheduler, Euler solver, no experiment logger):
 ```bash
-python main.py --mode train_flow --epochs 100 --batch_size 200 --lr 1e-3
+python main.py
 ```
 
-To train with classifier-free guidance (for conditional generation):
+Override training hyperparameters, switch to classifier-free guidance, or swap out a config group
+(`scheduler`: linear/polynomial/trigonometric, `solver`: euler/midpoint, `logger`: none/tensorboard/wandb):
 ```bash
-python main.py --mode train_flow --epochs 100 --batch_size 200 --lr 1e-3 --guided --guidance_scale 2.0
+python main.py epochs=100 batch_size=200 lr=1e-3
+python main.py guided=true guidance_scale=2.0
+python main.py scheduler=polynomial logger=wandb
 ```
-***
-### Sampling from the Trained Vector Field
 
-#### Flow-based Sampling (Euler ODE Solver)
-
-To generate samples using the flow model with Euler ODE solver:
+For multi-GPU training, launch with `torchrun` instead of `python` (DDP is wired up automatically):
 ```bash
-python main.py --mode sample --model_type flow --num_samples 10 --num_steps 500 --guided --guidance_scale 2.0 --save_path flow_samples.png
+torchrun --nproc_per_node=4 main.py epochs=100
 ```
 
-You can specify particular digits to generate:
+#### Sampling
+
+Flow model, Euler ODE solver:
 ```bash
-python main.py --mode sample --model_type flow --digits "0,1,2" --num_samples 5 --guided --guidance_scale 2.0
+python main.py mode=sample model_type=flow num_samples=10 num_steps=500 guided=true guidance_scale=2.0 save_path=images/flow_samples.png
 ```
 
-#### Diffusion-based Sampling (SDE Solver)
-
-To generate samples using the diffusion model with Euler-Maruyama SDE solver:
+Restrict to specific digits, or use the midpoint solver instead:
 ```bash
-python main.py --mode sample --model_type diffusion --num_samples 10 --num_steps 500 --guided --guidance_scale 2.0 --save_path diffusion_samples.png
+python main.py mode=sample model_type=flow digits="0,1,2" num_samples=5 guided=true guidance_scale=2.0
+python main.py mode=sample model_type=flow solver=midpoint
 ```
 
-For unguided diffusion sampling:
+Diffusion model, Euler-Maruyama SDE solver:
 ```bash
-python main.py --mode sample --model_type diffusion --num_samples 10 --num_steps 500
+python main.py mode=sample model_type=diffusion num_samples=10 num_steps=500 guided=true guidance_scale=2.0 save_path=images/diffusion_samples.png
+python main.py mode=sample model_type=diffusion num_samples=10 num_steps=500  # unguided
 ```
+
+<p align="center"><img src="images/flow_samples.png" width="500"></p>
+
 ***
 
 Alright, see ya later mate 
