@@ -1,12 +1,11 @@
 import torch
 from torch.optim import Adam
-import wandb
 from models.flow import Flow
 from sampling.ode_solver import EulerSolver
 from data.dataset import EMNISTDataLoader
 import torchvision
-from torch.utils.data import TensorDataset, DataLoader  # for sanity check later
 from tqdm import tqdm
+from training.logger import ExperimentLogger
 
 
 def get_device():
@@ -27,21 +26,49 @@ def train(
     device=get_device(),
     guided=False,
     guidance_scale=7.,
-    model_path="checkpoint/flow_model.pth"
+    model_path="checkpoint/flow_model.pth",
+    logger_type="none",
+    scheduler_type="linear",
+    use_attention=False,
 ):
-    wandb.init(project="Flow-Matching-Emnist", config={
-        "epochs": epochs,
-        "batch_size": batch_size,
-        "learning_rate": lr,
-        "num_steps": num_steps,
-        "guided": guided,
-        "guidance_scale": guidance_scale
-    })
+    """Trains a `Flow` model on EMNIST digits and checkpoints it.
+
+    Every 5th epoch (and the first), logs generated samples (and guided
+    samples per digit, if `guided`) to the configured experiment logger.
+
+    Args:
+        data_dir: Directory to read/download the EMNIST dataset into.
+        epochs: Number of training epochs.
+        batch_size: Training batch size.
+        lr: Adam learning rate.
+        num_steps: Number of Euler steps used when logging sample images
+            during training.
+        device: Torch device to train on.
+        guided: If True, trains with classifier-free guidance conditioning
+            and also logs per-digit guided samples.
+        guidance_scale: Guidance scale used when logging guided samples.
+        model_path: Path to save the trained model's state dict to.
+        logger_type: Experiment logger backend ('none', 'tensorboard', or
+            'wandb').
+        scheduler_type: Probability path scheduler ('linear',
+            'trigonometric', or 'polynomial').
+        use_attention: If True, uses a `Unet` with a bottleneck
+            self-attention block instead of the pure-CNN default.
+    """
+    logger = ExperimentLogger(
+        logger_type=logger_type,
+        project_name="Flow-Matching-Emnist",
+        run_name=f"Flow-Training-{'guided' if guided else 'unguided'}-{scheduler_type}"
+    )
 
     dataloader = EMNISTDataLoader(data_dir=data_dir, batch_size=batch_size)
     train_loader = dataloader.get_train_dataloader()
 
-    model = Flow(guidance_scale=guidance_scale).to(device)
+    model = Flow(
+        guidance_scale=guidance_scale,
+        scheduler_type=scheduler_type,
+        use_attention=use_attention,
+    ).to(device)
     optimizer = Adam(model.parameters(), lr=lr)
     solver = EulerSolver(model=model, num_steps=num_steps)
 
@@ -62,7 +89,7 @@ def train(
         avg_loss = total_loss / len(train_loader)
         loss_name = "guided loss" if guided else "unguided loss"
 
-        wandb.log({loss_name: avg_loss, "epoch": epoch + 1})
+        logger.log_scalar(loss_name, avg_loss, epoch + 1)
 
         print(f"Epoch {epoch+1}/{epochs} | Loss: {avg_loss:.4f}")
 
@@ -79,12 +106,12 @@ def train(
                     samples = torch.cat(all_samples, dim=0)
                     samples = samples.clamp(0, 1).cpu()
                     grid = torchvision.utils.make_grid(samples, nrow=5)
-                    wandb.log({"guided samples": wandb.Image(grid)})
+                    logger.log_image("guided samples", grid, step=epoch + 1, caption="Guided Samples")
 
                 unguided_samples = solver.sample_loop(shape=(8, 1, 28, 28))
                 unguided_samples = unguided_samples.clamp(0, 1).cpu()
                 unguided_grid = torchvision.utils.make_grid(
                     unguided_samples, nrow=4)
-                wandb.log({"unguided_samples": wandb.Image(unguided_grid)})
+                logger.log_image("unguided_samples", unguided_grid, step=epoch + 1, caption="Unguided Samples")
     torch.save(model.state_dict(), model_path)
-    wandb.finish()
+    logger.finish()
