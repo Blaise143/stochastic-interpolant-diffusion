@@ -19,6 +19,14 @@ class FourrierFeatureEmbedding(nn.Module):
         self.register_buffer("W", torch.randn(embed_dim // 2) * scale)
 
     def forward(self, t: torch.Tensor):
+        """Computes the random Fourier feature embedding of `t`.
+
+        Args:
+            t: Time value(s), shape (batch,) or (batch, 1).
+
+        Returns:
+            Embedding of shape (batch, embed_dim).
+        """
         if t.ndim == 1:
             t = t[:, None]
         proj = 2 * math.pi * t * self.W[None, :]  # pyright: ignore
@@ -26,29 +34,29 @@ class FourrierFeatureEmbedding(nn.Module):
 
 
 class Sinusoidal_Embedding(nn.Module):
-    """Sinusoidal embeddings to be used for time
+    """Transformer-style sinusoidal embeddings, used for time.
 
     Attributes:
-        embed_dim: The length of the embeding vectors
+        embed_dim: The length of the embedding vectors.
     """
 
     def __init__(self, embed_dim: int):
-        """This is some random ass function that I need to implement for some reason
-
+        """
         Args:
-            embed_dim: The embedding dimension that is needed
+            embed_dim: The embedding dimension to produce.
         """
         super().__init__()
         self.embed_dim = embed_dim
 
     def forward(self, t: torch.Tensor | float) -> torch.Tensor:
-        """This is a forward method of some random class
+        """Computes the sinusoidal embedding of `t`.
 
         Args:
-            t: Some tensor
+            t: Time value(s): a scalar, or a tensor of shape (batch,) or
+                (batch, 1).
 
         Returns:
-
+            Embedding of shape (batch, embed_dim).
         """
         dim = self.embed_dim
         if not isinstance(t, torch.Tensor):
@@ -85,6 +93,14 @@ class TimeEmbedding(nn.Module):
             self.embedding = Sinusoidal_Embedding(embed_dim=embed_dim)
 
     def forward(self, t: torch.Tensor):
+        """Computes the time embedding of `t` using the configured `kind`.
+
+        Args:
+            t: Time value(s), shape (batch,) or (batch, 1).
+
+        Returns:
+            Embedding of shape (batch, embed_dim).
+        """
         t = self.embedding(t)
         return t
 

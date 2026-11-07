@@ -14,20 +14,30 @@ class StochasticInterpolant(nn.Module, ABC):
 
     @abstractmethod
     def sample(self, x: torch.Tensor, labels: Optional[torch.Tensor] = None) -> tuple:
-        """Abstract method for sampling a probability path
+        """Draws a training pair from the probability path at a random time.
 
         Args:
-            x:Input tensor
-            label: the target label, by default none
+            x: Input data tensor.
+            labels: Optional target labels, for conditional interpolants.
 
         Returns:
-
+            A tuple (xt, t, target_vector_field, labels): the interpolated
+            point, the sampled time, the regression target for the vector
+            field, and the labels (possibly None).
 
         Raises:
-            NotImplementedError:
+            NotImplementedError: If the subclass does not implement this.
         """
-        raise NotImplementedError("Implement This bri")
+        raise NotImplementedError("Subclasses must implement sample()")
 
     @abstractmethod
     def compute_loss(self, x: torch.Tensor):
-        raise NotImplementedError("Implement this bro ")
+        """Computes the training loss for a batch of data.
+
+        Args:
+            x: Input data tensor.
+
+        Raises:
+            NotImplementedError: If the subclass does not implement this.
+        """
+        raise NotImplementedError("Subclasses must implement compute_loss()")
