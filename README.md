@@ -69,7 +69,7 @@ python main.py mode=sample model_type=diffusion num_samples=10 num_steps=500 gui
 python main.py mode=sample model_type=diffusion num_samples=10 num_steps=500  # unguided
 ```
 
-<p align="center"><img src="images/flow_samples.png" width="500"></p>
+<!-- <p align="center"><img src="images/flow_samples.png" width="500"></p> -->
 
 ***
 
