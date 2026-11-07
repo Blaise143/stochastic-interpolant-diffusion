@@ -9,6 +9,13 @@ TransformType = Callable[[torch.Tensor], torch.Tensor]
 
 
 class EMNIST(BaseDataset):
+    """The EMNIST 'digits' split, wrapped as a `BaseDataset`.
+
+    Attributes:
+        transforms: Preprocessing pipeline applied to each image.
+        dataset: The underlying torchvision EMNIST dataset.
+    """
+
     def __init__(
         self,
         data_dir: str,
@@ -16,6 +23,13 @@ class EMNIST(BaseDataset):
         train: bool = True,
         download: bool = True,
     ):
+        """
+        Args:
+            data_dir: Directory to read/download the raw EMNIST data into.
+            transforms: Preprocessing pipeline; defaults to `emnist_transform()`.
+            train: If True, loads the training split, else the test split.
+            download: If True, downloads the dataset to `data_dir` if missing.
+        """
         super().__init__()
 
         self.transforms = transforms or emnist_transform()
@@ -29,14 +43,25 @@ class EMNIST(BaseDataset):
         )
 
     def __len__(self):
+        """Returns the number of images in the dataset."""
         return len(self.dataset)
 
     def __getitem__(self, idx: int):
+        """Returns the (image, label) pair at `idx`."""
         image, label = self.dataset[idx]
         return image, label
 
 
 class EMNISTDataLoader(BaseDataLoader):
+    """Builds train/test `DataLoader`s over the EMNIST digits dataset.
+
+    Attributes:
+        batch_size: Batch size used by both dataloaders.
+        num_workers: Number of worker processes used by both dataloaders.
+        train_dataset: The training split, as an `EMNIST` dataset.
+        test_dataset: The test split, as an `EMNIST` dataset.
+    """
+
     def __init__(
         self,
         data_dir: str,
@@ -44,6 +69,13 @@ class EMNISTDataLoader(BaseDataLoader):
         num_workers: int = 4,
         transforms: Optional[TransformType] = None,
     ):
+        """
+        Args:
+            data_dir: Directory to read/download the raw EMNIST data into.
+            batch_size: Batch size for both train and test dataloaders.
+            num_workers: Number of worker processes for data loading.
+            transforms: Preprocessing pipeline shared by both splits.
+        """
         self.batch_size = batch_size
         self.num_workers = num_workers
 
@@ -56,6 +88,7 @@ class EMNISTDataLoader(BaseDataLoader):
         )
 
     def get_train_dataloader(self) -> DataLoader:
+        """Returns a shuffled DataLoader over the training split."""
         return DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
@@ -64,6 +97,7 @@ class EMNISTDataLoader(BaseDataLoader):
         )
 
     def get_test_dataloader(self) -> DataLoader:
+        """Returns an unshuffled DataLoader over the test split."""
         return DataLoader(
             self.test_dataset,
             batch_size=self.batch_size,
