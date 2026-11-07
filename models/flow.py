@@ -90,7 +90,7 @@ class Flow(StochasticInterpolant):
         guided = self.vector_field(x, t, labels)
         return (1 - guidance_scale) * unguided + guidance_scale * guided
 
-    def forward(self, x, t=None, labels=None, guidance_scale=None):
+    def forward(self, x, t=None, labels=None, guidance_scale=None, return_loss=False):
         """Predicts the vector field, either at a fresh training point or at (x, t).
 
         If `t` is None, draws a training interpolant from `x` via `sample`
@@ -103,10 +103,20 @@ class Flow(StochasticInterpolant):
             t: Time, shape (batch, 1), or None to sample one.
             labels: Optional class labels for conditioning.
             guidance_scale: Optional classifier-free guidance scale.
+            return_loss: If True, returns the training loss instead of the
+                vector field. Training must call `model(...)` with this
+                flag (rather than `compute_loss`) when `model` is wrapped
+                in `DistributedDataParallel`, since only calls through
+                `forward` trigger DDP's gradient synchronization.
 
         Returns:
-            The predicted vector field at the resulting (x, t).
+            The predicted vector field at the resulting (x, t), or the
+            scalar training loss if `return_loss` is True.
         """
+        if return_loss:
+            xt, t, target_vector_field, labels = self.sample(x, labels)
+            pred = self.vector_field(xt, t, labels)
+            return self.criterion(pred, target_vector_field)
         if t is None:
             xt, t, target_vector_field, labels = self.sample(x, labels)
             return self.get_vector_field(xt, t, labels, guidance_scale)
@@ -114,11 +124,9 @@ class Flow(StochasticInterpolant):
             return self.get_vector_field(x, t, labels, guidance_scale)
 
     def compute_loss(self, x, labels=None):
-
-        xt, t, target_vector_field, labels = self.sample(x, labels)
-        pred = self.vector_field(xt, t, labels)
-        loss = self.criterion(pred, target_vector_field)
-        return loss
+        """Computes the training loss. Prefer `model(x, labels=labels,
+        return_loss=True)` directly when `model` may be DDP-wrapped."""
+        return self.forward(x, labels=labels, return_loss=True)
 
     def get_score(
         self,

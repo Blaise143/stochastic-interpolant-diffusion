@@ -1,14 +1,23 @@
 import torch
 import argparse
-import wandb
 import torchvision
 from training.flow_trainer import train as train_flow
 from models.flow import Flow
-from sampling.ode_solver import EulerSolver
+from sampling.ode_solver import EulerSolver, MidpointSolver
 from sampling.sde_solver import EulerMaruyamaSolver
+from training.logger import ExperimentLogger
 
 
 def get_device(device_arg=None):
+    """Resolves the torch device to use.
+
+    Args:
+        device_arg: Explicit device request ('cuda', 'mps', or 'cpu'), or
+            None to auto-detect the best available device.
+
+    Returns:
+        A torch.device.
+    """
     if device_arg == "cuda" and torch.cuda.is_available():
         return torch.device("cuda")
     elif device_arg == "mps" and torch.backends.mps.is_available():
@@ -25,6 +34,11 @@ def get_device(device_arg=None):
 
 
 def parse_args():
+    """Parses CLI arguments for training (`--mode train_flow`) or sampling (`--mode sample`).
+
+    Returns:
+        The parsed argparse.Namespace.
+    """
     parser = argparse.ArgumentParser(
         description="Flow Matching")
     parser.add_argument("--mode", type=str, default="train_flow",
@@ -33,6 +47,9 @@ def parse_args():
     parser.add_argument("--model_type", type=str, default="flow",
                         choices=["flow", "diffusion"],
                         help="Model type for sampling (flow uses Euler, diffusion uses Euler Maruyama)")
+    parser.add_argument("--solver", type=str, default="euler",
+                        choices=["euler", "midpoint"],
+                        help="ODE solver type for flow model ('euler' or 'midpoint')")
     parser.add_argument("--epochs", type=int, default=1000,
                         help="Number of epochs")
     parser.add_argument("--batch_size", type=int,
@@ -58,8 +75,14 @@ def parse_args():
     parser.add_argument("--device", type=str, default="cuda",
                         choices=["cuda", "mps", "cpu"],
                         help="Device used.")
-    parser.add_argument("--use_wandb", action="store_true",
-                        help="Log results to wandb")
+    parser.add_argument("--logger", type=str, default="none",
+                        choices=["none", "tensorboard", "wandb"],
+                        help="Logger type to use ('none', 'tensorboard', or 'wandb')")
+    parser.add_argument("--scheduler", type=str, default="linear",
+                        choices=["linear", "trigonometric", "polynomial"],
+                        help="Probability path scheduler type ('linear', 'trigonometric', or 'polynomial')")
+    parser.add_argument("--attention", action="store_true",
+                        help="if flagged, use a Unet with bottleneck self-attention instead of pure CNN")
 
     args = parser.parse_args()
     return args
@@ -67,15 +90,18 @@ def parse_args():
 
 def sample(
     model_type="flow",
+    solver_type="euler",
+    scheduler_type="linear",
     model_path="checkpoints/flow_model.pth",
     num_steps=500,
     num_samples=10,
     guided=True,
     guidance_scale=7.5,
     device=None,
-    use_wandb=False,
+    logger_type="none",
     digits=None,
-    save_path=None
+    save_path=None,
+    use_attention=False,
 ):
     """
     Sample images from a flow or diffusion model.
@@ -85,10 +111,18 @@ def sample(
     """
     device = get_device(device)
 
-    if use_wandb:
-        wandb.init(project="Flow-Matching-Sampling", name=f"{model_type.capitalize()}-Sampling")
+    logger = ExperimentLogger(
+        logger_type=logger_type,
+        project_name="Flow-Matching-Sampling",
+        run_name=f"{model_type.capitalize()}-Sampling"
+    )
 
-    model = Flow(num_classes=10, guidance_scale=guidance_scale).to(device)
+    model = Flow(
+        num_classes=10,
+        guidance_scale=guidance_scale,
+        scheduler_type=scheduler_type,
+        use_attention=use_attention,
+    ).to(device)
 
     try:
         model.load_state_dict(torch.load(model_path, map_location=device))
@@ -98,8 +132,12 @@ def sample(
     model.eval()
 
     if model_type == "flow":
-        solver = EulerSolver(model=model, num_steps=num_steps)
-        print(f"Using Euler solver for {model_type} model")
+        if solver_type.lower() == "midpoint":
+            solver = MidpointSolver(model=model, num_steps=num_steps)
+            print(f"Using Midpoint ODE solver for {model_type} model")
+        else:
+            solver = EulerSolver(model=model, num_steps=num_steps)
+            print(f"Using Euler ODE solver for {model_type} model")
     else:  # diffusion
         solver = EulerMaruyamaSolver(model=model, num_steps=num_steps)
         print(f"Using Euler Maruyama solver for {model_type} model")
@@ -145,7 +183,14 @@ def sample(
     else:
         grid = torchvision.utils.make_grid(all_samples, nrow=num_samples)
 
-    method = "Euler" if model_type == "flow" else "Euler Maruyama"
+    if model_type == "flow":
+        if solver_type.lower() == "midpoint":
+            method = "Midpoint ODE"
+        else:
+            method = "Euler ODE"
+    else:
+        method = "Euler Maruyama SDE"
+
     if len(digits_to_sample) == 10:
         caption = f"{method} Method: {num_samples} samples per digit. Rows from top to bottom: digits 0-9"
     else:
@@ -155,24 +200,22 @@ def sample(
         else:
             caption = f"{method} Method: {num_samples} samples per digit. Rows from top to bottom: digits {digits_str}"
 
-    if use_wandb:
-        log_title = f"{model_type.capitalize()} Model Samples"
-        if digits is not None and num_samples == 1:
-            log_title += " (One per digit)"
-        else:
-            log_title += f" ({num_samples} per digit)"
+    log_title = f"{model_type.capitalize()} Model Samples"
+    if digits is not None and num_samples == 1:
+        log_title += " (One per digit)"
+    else:
+        log_title += f" ({num_samples} per digit)"
 
-        wandb.log({
-            log_title: wandb.Image(grid, caption=caption)
-        })
-        wandb.finish()
+    logger.log_image(log_title, grid, step=0, caption=caption)
+    logger.finish()
 
     if save_path is None:
+        solver_suffix = f"_{solver_type.lower()}" if model_type == "flow" else ""
         if len(digits_to_sample) == 10:
-            save_path = f"images/{model_type}_samples.png"
+            save_path = f"images/{model_type}{solver_suffix}_samples.png"
         else:
             digits_str = "_".join(str(d) for d in digits_to_sample)
-            save_path = f"images/{model_type}_samples_digits_{digits_str}.png"
+            save_path = f"images/{model_type}{solver_suffix}_samples_digits_{digits_str}.png"
 
     import os
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
@@ -191,18 +234,24 @@ if __name__ == "__main__":
             num_steps=args.num_steps,
             guided=args.guided,
             guidance_scale=args.guidance_scale,
-            model_path=args.model_path
+            model_path=args.model_path,
+            logger_type=args.logger,
+            scheduler_type=args.scheduler,
+            use_attention=args.attention
         )
     elif args.mode == "sample":
         sample(
             model_type=args.model_type,
+            solver_type=args.solver,
+            scheduler_type=args.scheduler,
             model_path=args.model_path,
             num_steps=args.num_steps,
             num_samples=args.num_samples,
             guided=args.guided,
             guidance_scale=args.guidance_scale,
             device=args.device,
-            use_wandb=args.use_wandb,
+            logger_type=args.logger,
             digits=args.digits,
-            save_path=args.save_path
+            save_path=args.save_path,
+            use_attention=args.attention
         )

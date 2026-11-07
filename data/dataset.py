@@ -87,12 +87,20 @@ class EMNISTDataLoader(BaseDataLoader):
             data_dir=data_dir, transforms=transforms, train=False, download=True
         )
 
-    def get_train_dataloader(self) -> DataLoader:
-        """Returns a shuffled DataLoader over the training split."""
+    def get_train_dataloader(self, sampler: Optional[torch.utils.data.Sampler] = None) -> DataLoader:
+        """Returns a DataLoader over the training split.
+
+        Args:
+            sampler: Optional sampler (e.g. `DistributedSampler`) controlling
+                how the data is split/ordered. When given, `shuffle` is left
+                unset since a sampler and `shuffle=True` are mutually
+                exclusive in `DataLoader`.
+        """
         return DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
-            shuffle=True,
+            shuffle=(sampler is None),
+            sampler=sampler,
             num_workers=self.num_workers,
         )
 
