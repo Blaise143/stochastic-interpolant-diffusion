@@ -5,3 +5,10 @@
 *.log
 /wandb
 /data/__pycache__
+viz/
+.DS_Store
+runs/
+test_midpoint_solver.py
+hydra_demo/outputs/
+hydra_demo/multirun/
+gin_demo/outputs/
