@@ -12,3 +12,4 @@ test_midpoint_solver.py
 hydra_demo/outputs/
 hydra_demo/multirun/
 gin_demo/outputs/
+outputs
